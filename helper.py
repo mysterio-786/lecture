@@ -13,6 +13,19 @@ import aiofiles
 from pyrogram.types import Message
 from pyrogram import Client, filters
 
+def get_title(url):
+    try:
+        result = subprocess.run(
+            ["yt-dlp", "--get-title", url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        title = result.stdout.strip()
+        return title if title else None
+    except:
+        return None
+
 async def generate_thumbnail(filename, width=1280, height=720, time="0.0"):
     return None
 
@@ -75,19 +88,38 @@ async def download_video(url, name, raw_text2):
     try:
         output_file = f"{name}.mp4"
         
-        command = [
+        # 🔹 YouTube ke liye
+        if "youtube.com" in url or "youtu.be" in url:
+            command = [
+                "yt-dlp",
+                "-f", "bestvideo+bestaudio/best/b",
+                "--geo-bypass",
+                "--concurrent-fragments", "10",
+                "--retries", "10",
+                "--fragment-retries", "10",
+                url,
+                "--output", output_file,
+                "--merge-output-format", "mp4",
+            ]
+        
+        # 🔹 DRM / Classplus (same as before)
+        else:
+            command = [
                 "yt-dlp",
                 "-k", 
                 "--allow-unplayable-formats", 
                 "--geo-bypass",
-                "--cookies", "cookies.txt",
+                * (["--cookies", "cookies.txt"] if os.path.exists("cookies.txt") else []),
+                "--concurrent-fragments", "10",
+                "--retries", "10",
+                "--fragment-retries", "10",
                 "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b",
                 "-S", f"res~{raw_text2},+size,+br",
                 "--fixup", "never",
                 url,
                 "--output", output_file,
                 "--merge-output-format", "mp4",
-        ]
+            ]
             
         result = subprocess.run(command, check=True, text=True, stderr=subprocess.PIPE)
         
@@ -99,15 +131,22 @@ async def download_video(url, name, raw_text2):
 
         else:
             print(f"yt-dlp command failed: {result.stderr.strip()}")
-            return None, f"yt-dlp command failed: {result.stderr.strip()}"
+            return None
 
     except FileNotFoundError as exc:
         print(f"File not found: {exc}")
-        return None, f"File not found: {exc}"
+        return None
+
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e.stderr.strip()}")
-        return None, f"An error occurred: {e.stderr.strip()}"
+        error_msg = e.stderr.strip() if e.stderr else "yt-dlp failed"
+        print(f"An error occurred: {error_msg}")
+        return None
+
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return None
         
+
 async def send_vid(bot: Client, m: Message, cc, filename, thumb, name):
 
     generated_thumb = None
@@ -122,10 +161,20 @@ async def send_vid(bot: Client, m: Message, cc, filename, thumb, name):
     start_time = time.time()
 
     try:        
-        await m.reply_video(filename, caption=cc, supports_streaming=True, height=720, width=1280, thumb=thumbnail, duration=duration, progress=progress_bar, progress_args=(reply, start_time))
+        await m.reply_video(
+            filename,
+            caption=cc,
+            supports_streaming=True,
+            height=720,
+            width=1280,
+            thumb=thumbnail,
+            duration=duration,
+            progress=progress_bar,
+            progress_args=(reply, start_time)
+        )
                 
     except Exception as e:
-        await print(str(e))
+        print(str(e))
                 
     os.remove(filename)
     if thumbnail and os.path.exists(thumbnail):
