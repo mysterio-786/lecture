@@ -58,6 +58,8 @@ async def account_login(bot: Client, m: Message):
         
     editable = await m.reply_text(f"**Hey [{m.from_user.first_name}](tg://user?id={m.from_user.id})\nSend txt file**")
     input: Message = await bot.listen(editable.chat.id)
+    
+    # 🔹 अगर user ने txt file भेजी
     if input.document:
         x = await input.download()
         await input.delete(True)
@@ -67,23 +69,49 @@ async def account_login(bot: Client, m: Message):
 
         try:
             with open(x, "r") as f:
-                content = f.read()
-            content = content.split("\n")
+                content = f.read().strip()
+                
+            if "\n" in content:
+                content = content.split("\n")
+            else:
+                content = [content]
+                
             links = []
             for i in content:
                 links.append(i.split("://", 1))
+                
             os.remove(x)
             
         except:
             await m.reply_text("Invalid file input.🥲")
             os.remove(x)
             return
-    else:
-        content = input.text
-        content = content.split("\n")
+        
+    # 🔹 direct link support (NEW)   
+    elif input.text:
+        content = input.text.strip()
+        
+        if "\n" in content:
+            content = content.split("\n")
+        else:
+            content = [content]
+            
         links = []
         for i in content:
             links.append(i.split("://", 1))
+            
+        file_name = "Direct_link"
+        credit = f"[{m.from_user.first_name}](tg://user?id={m.from_user.id})"
+        path = f"./downloads/{m.chat.id}"
+    else:
+        await m.reply_text("Send a valid link or txt file ❌")
+        return                                                   
+    # else:
+    #     content = input.text
+    #     content = content.split("\n")
+    #     links = []
+    #     for i in content:
+    #         links.append(i.split("://", 1))
    
     await editable.edit(f"Total links found are **{len(links)}**\n\nSend From where you want to download initial is **1**")
     input0: Message = await bot.listen(editable.chat.id)
@@ -146,7 +174,7 @@ async def account_login(bot: Client, m: Message):
         getstatusoutput(f"wget '{thumb}' -O 'thumb.jpg'")
         thumb = "thumb.jpg"
     else:
-        thumb == "No"
+        thumb = "No"
 
     if len(links) == 1:
         count = 1
@@ -204,7 +232,16 @@ async def account_login(bot: Client, m: Message):
             else:
                 url = url
                 
-            name1 = links[i][0].replace("\t", "").replace(":", "").replace("/", "").replace("+", "").replace("#", "").replace("|", "").replace("@", "").replace("*", "").replace(".", "").replace("https", "").replace("http", "").strip()
+            title = None
+            try:
+                title = helper.get_title(url)
+            except:
+                pass    
+            if title:
+                name1 = title[:60]
+                name1 = re.sub(r'[\\/:*?"<>|]', '', name1)
+            else:
+                name1 = links[i][1].split("/")[-1][:60]
             name = f'{str(count).zfill(3)}) {name1[:60]}'
             
             try:                               
@@ -235,7 +272,17 @@ async def account_login(bot: Client, m: Message):
                         continue
                 else:
                     prog = await m.reply_text(f"**Downloading:-**\n\n** Video Name :-** `{name}\nQuality - {raw_text2}`\n**link:**`{url}`**")
-                    res_file = await helper.download_video(url, name, raw_text2)
+                    res_file = None
+                    
+                    for attempt in range(3):
+                        res_file = await helper.download_video(url, name, raw_text2)
+                        if res_file:
+                            break
+                    if not res_file:
+                        await m.reply_text(f"❌ Failed to download: {name}") 
+                        count += 1
+                        continue   
+                    
                     filename = res_file
                     await prog.delete(True)
                     await helper.send_vid(bot, m, cc, filename, thumb, name)
