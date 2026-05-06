@@ -16,6 +16,8 @@ import asyncio
 from pyrogram.types import User, Message
 from flask import Flask
 from threading import Thread
+import os
+os.system("ffmpeg -version")
 
 app = Flask(__name__)
 
