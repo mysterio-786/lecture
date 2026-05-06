@@ -92,7 +92,7 @@ async def download_video(url, name, raw_text2):
         if "youtube.com" in url or "youtu.be" in url:
             command = [
                 "yt-dlp",
-                "-f", "bestvideo+bestaudio/best/b",
+                "-f", "bv*+ba/b",
                 "--geo-bypass",
                 "--concurrent-fragments", "10",
                 "--retries", "10",
