@@ -188,6 +188,9 @@ async def account_login(bot: Client, m: Message):
 
             V = links[i][1].replace("file/d/","uc?export=download&id=").replace("www.youtube-nocookie.com/embed", "youtu.be").replace("?modestbranding=1", "").replace("/view?usp=sharing","")
             url = "https://" + V
+            # 🔥 YouTube clean URL fix
+            if "youtube.com" in url or "youtu.be" in url:
+                url = url.split("?")[0]
 
             if "visionias" in url:
                 async with ClientSession() as session:
